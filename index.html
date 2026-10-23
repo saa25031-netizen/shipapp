@@ -542,7 +542,8 @@
         // Dynamically update dropdown filter options
         function updateFilterOptions() {
             const currentCrop = filterCropSelect.value;
-            const uniqueCrops = [...new Set(allShipmentData.map(d => d.cropName))].filterBoolean();
+            // 修正: filterBoolean() ではなく JavaScript 標準の .filter(Boolean) を使用
+            const uniqueCrops = [...new Set(allShipmentData.map(d => d.cropName))].filter(Boolean);
 
             filterCropSelect.innerHTML = `<option value="ALL">全ての農産物</option>`;
             uniqueCrops.forEach(crop => {
