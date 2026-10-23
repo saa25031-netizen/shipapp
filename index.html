@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>農産物出荷・販売管理アプリ - shipapp</title>
+    <!-- Tailwind CSS (UI styling) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome (Icons) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js (Data Visualization) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', 'Hiragino Sans', 'Meiryo', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+    <!-- Header / Navbar -->
+    <header class="bg-emerald-700 text-white shadow-md sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <div class="bg-white text-emerald-700 p-2 rounded-lg shadow">
+                    <i class="fa-solid fa-wheat-awn text-xl"></i>
+                </div>
+                <h1 class="text-xl font-bold tracking-wide">農産物出荷管理 app</h1>
+            </div>
+            
+            <!-- Auth Status Area -->
+            <div id="authArea" class="flex items-center space-x-3">
+                <!-- User Profile info will be injected here when logged in -->
+                <div id="userInfo" class="hidden flex items-center space-x-2 bg-emerald-800 px-3 py-1.5 rounded-full text-sm">
+                    <img id="userAvatar" class="w-7 h-7 rounded-full border border-white object-cover" src="" alt="Avatar">
+                    <span id="userName" class="font-medium max-w-[120px] sm:max-w-xs truncate"></span>
+                </div>
+                <button id="logoutBtn" class="hidden bg-emerald-800 hover:bg-emerald-900 text-xs sm:text-sm px-3 py-1.5 rounded-lg font-medium transition flex items-center gap-1 border border-emerald-600">
+                    <i class="fa-solid fa-right-from-bracket"></i> ログアウト
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-grow max-w-6xl w-full mx-auto p-4 sm:p-6">
+        
+        <!-- LOGIN SECTION (Shown when logged out) -->
+        <section id="loginSection" class="my-12 flex justify-center">
+            <div class="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full border border-slate-100 text-center">
+                <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">
+                    <i class="fa-solid fa-seedling"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-slate-800 mb-2">shipapp へようこそ</h2>
+                <p class="text-slate-600 text-sm mb-6">実習で収穫した農産物の出荷・販売記録を簡単・スマートに管理します。</p>
+                
+                <button id="googleLoginBtn" class="w-full bg-white hover:bg-slate-50 text-slate-700 font-semibold py-3 px-4 border border-slate-300 rounded-xl shadow-sm transition flex items-center justify-center gap-3 active:scale-95">
+                    <svg class="w-5 h-5" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                    </svg>
+                    Google アカウントでログイン
+                </button>
+            </div>
+        </section>
+
+        <!-- DASHBOARD SECTION (Shown when logged in) -->
+        <div id="dashboardSection" class="hidden space-y-6">
+
+            <!-- Summary Cards & Chart Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Summary Stats -->
+                <div class="lg:col-span-1 bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between">
+                    <div>
+                        <h3 class="text-base font-bold text-slate-700 mb-3 flex items-center gap-2">
+                            <i class="fa-solid fa-chart-pie text-emerald-600"></i> 品目別 出荷合計
+                        </h3>
+                        <div id="summaryList" class="space-y-2 max-h-48 overflow-y-auto pr-1">
+                            <p class="text-sm text-slate-400">データがありません</p>
+                        </div>
+                    </div>
+                    <div class="mt-4 pt-3 border-t border-slate-100 text-xs text-slate-500 text-right">
+                        総登録件数: <span id="totalCount" class="font-bold text-slate-800 text-sm">0</span> 件
+                    </div>
+                </div>
+
+                <!-- Shipping Trend Chart -->
+                <div class="lg:col-span-2 bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                    <h3 class="text-base font-bold text-slate-700 mb-2 flex items-center gap-2">
+                        <i class="fa-solid fa-chart-line text-emerald-600"></i> 出荷数量推移
+                    </h3>
+                    <div class="h-48 w-full">
+                        <canvas id="shipmentChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                <!-- INPUT FORM -->
+                <div class="lg:col-span-1 bg-white p-5 rounded-2xl shadow-sm border border-slate-200 h-fit">
+                    <h3 id="formTitle" class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-circle-plus text-emerald-600"></i> 出荷記録の登録
+                    </h3>
+                    
+                    <!-- Alert Error Message -->
+                    <div id="errorMessage" class="hidden mb-4 p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl flex items-start gap-2">
+                        <i class="fa-solid fa-triangle-exclamation mt-0.5"></i>
+                        <span id="errorText"></span>
+                    </div>
+
+                    <form id="shipmentForm" class="space-y-4">
+                        <input type="hidden" id="editDocId" value="">
+
+                        <!-- 1. 農産物名 -->
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">農産物名 <span class="text-rose-500">*</span></label>
+                            <input type="text" id="cropName" list="cropOptions" placeholder="例: トマト, キャベツ" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent">
+                            <datalist id="cropOptions">
+                                <option value="トマト"></option>
+                                <option value="ミニトマト"></option>
+                                <option value="キュウリ"></option>
+                                <option value="ナス"></option>
+                                <option value="キャベツ"></option>
+                                <option value="ダイコン"></option>
+                                <option value="イチゴ"></option>
+                                <option value="ミカン"></option>
+                            </datalist>
+                        </div>
+
+                        <!-- 2. 出荷日 -->
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">出荷日 <span class="text-rose-500">*</span></label>
+                            <input type="date" id="shipDate" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent">
+                        </div>
+
+                        <!-- 3. 出荷数量 & 単位 -->
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">出荷数量 <span class="text-rose-500">*</span></label>
+                            <div class="flex gap-2">
+                                <input type="number" step="0.1" id="quantity" placeholder="例: 15.5" class="w-2/3 px-3 py-2 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent">
+                                <select id="unit" class="w-1/3 px-2 py-2 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                                    <option value="kg">kg</option>
+                                    <option value="個">個</option>
+                                    <option value="箱">箱</option>
+                                    <option value="袋">袋</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- 4. 出荷先 -->
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">出荷先 <span class="text-rose-500">*</span></label>
+                            <select id="destination" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                                <option value="">選択してください</option>
+                                <option value="直売所">直売所</option>
+                                <option value="学校祭">学校祭</option>
+                                <option value="給食">給食</option>
+                                <option value="スーパー">スーパー</option>
+                                <option value="その他">その他</option>
+                            </select>
+                        </div>
+
+                        <!-- 5. メモ -->
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">メモ</label>
+                            <textarea id="memo" rows="2" placeholder="品質や特記事項など" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"></textarea>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="flex gap-2 pt-2">
+                            <button type="submit" id="submitBtn" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 px-4 rounded-xl shadow-md transition text-sm flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-paper-plane"></i> 登録する
+                            </button>
+                            <button type="button" id="cancelEditBtn" class="hidden bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold py-2.5 px-3 rounded-xl transition text-sm">
+                                キャンセル
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- RECORDS LIST -->
+                <div class="lg:col-span-2 bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col">
+                    
+                    <!-- Search & Filter Controls -->
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-100">
+                        <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                            <i class="fa-solid fa-list-check text-emerald-600"></i> 出荷履歴一覧
+                        </h3>
+                        
+                        <div class="flex flex-wrap items-center gap-2">
+                            <!-- Filter Crop -->
+                            <select id="filterCrop" class="text-xs px-2.5 py-1.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-slate-50">
+                                <option value="ALL">全ての農産物</option>
+                            </select>
+
+                            <!-- Filter Destination -->
+                            <select id="filterDest" class="text-xs px-2.5 py-1.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-slate-50">
+                                <option value="ALL">全ての出荷先</option>
+                                <option value="直売所">直売所</option>
+                                <option value="学校祭">学校祭</option>
+                                <option value="給食">給食</option>
+                                <option value="スーパー">スーパー</option>
+                                <option value="その他">その他</option>
+                            </select>
+
+                            <!-- Sort Order -->
+                            <button id="sortToggleBtn" class="text-xs px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg border border-slate-300 flex items-center gap-1 font-medium transition">
+                                <i class="fa-solid fa-arrow-down-wide-short"></i> <span id="sortLabel">新しい順</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Records Table / Cards -->
+                    <div class="flex-grow overflow-x-auto">
+                        <div id="recordsContainer" class="space-y-3">
+                            <!-- Injected dynamically -->
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Custom Modal for Delete Confirmation -->
+    <div id="modalOverlay" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center">
+            <div class="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-3 text-xl">
+                <i class="fa-solid fa-trash-can"></i>
+            </div>
+            <h4 class="text-lg font-bold text-slate-800 mb-1">データを削除しますか？</h4>
+            <p class="text-xs text-slate-500 mb-5">この操作は取り消せません。</p>
+            <div class="flex gap-3">
+                <button id="closeModalBtn" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-2 rounded-xl text-sm transition">
+                    キャンセル
+                </button>
+                <button id="confirmDeleteBtn" class="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-medium py-2 rounded-xl text-sm transition shadow">
+                    削除する
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { 
+            getAuth, 
+            GoogleAuthProvider, 
+            signInWithPopup, 
+            signOut, 
+            onAuthStateChanged 
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { 
+            getFirestore, 
+            collection, 
+            addDoc, 
+            updateDoc, 
+            deleteDoc, 
+            doc, 
+            onSnapshot,
+            serverTimestamp 
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Provided Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDngO7zaiBblrSxf84iLtSpU2hd_MiWfT8",
+            authDomain: "shipapp-6de62.firebaseapp.com",
+            projectId: "shipapp-6de62",
+            storageBucket: "shipapp-6de62.firebasestorage.app",
+            messagingSenderId: "346896300444",
+            appId: "1:346896300444:web:6b4ff3f709e4fc768ff059"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const provider = new GoogleAuthProvider();
+
+        // Application State
+        let currentUser = null;
+        let unsubscribeSnapshot = null;
+        let allShipmentData = [];
+        let sortDesc = true; // Default: new dates first
+        let deleteTargetId = null;
+        let chartInstance = null;
+
+        // DOM Elements
+        const loginSection = document.getElementById('loginSection');
+        const dashboardSection = document.getElementById('dashboardSection');
+        const googleLoginBtn = document.getElementById('googleLoginBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const userInfo = document.getElementById('userInfo');
+        const userAvatar = document.getElementById('userAvatar');
+        const userName = document.getElementById('userName');
+
+        const shipmentForm = document.getElementById('shipmentForm');
+        const formTitle = document.getElementById('formTitle');
+        const editDocId = document.getElementById('editDocId');
+        const cropNameInput = document.getElementById('cropName');
+        const shipDateInput = document.getElementById('shipDate');
+        const quantityInput = document.getElementById('quantity');
+        const unitInput = document.getElementById('unit');
+        const destinationInput = document.getElementById('destination');
+        const memoInput = document.getElementById('memo');
+        const submitBtn = document.getElementById('submitBtn');
+        const cancelEditBtn = document.getElementById('cancelEditBtn');
+        const errorMessage = document.getElementById('errorMessage');
+        const errorText = document.getElementById('errorText');
+
+        const filterCropSelect = document.getElementById('filterCrop');
+        const filterDestSelect = document.getElementById('filterDest');
+        const sortToggleBtn = document.getElementById('sortToggleBtn');
+        const sortLabel = document.getElementById('sortLabel');
+        const recordsContainer = document.getElementById('recordsContainer');
+        const summaryList = document.getElementById('summaryList');
+        const totalCountEl = document.getElementById('totalCount');
+
+        const modalOverlay = document.getElementById('modalOverlay');
+        const closeModalBtn = document.getElementById('closeModalBtn');
+        const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+
+        // Initialize Default Date to Today
+        shipDateInput.value = new Date().toISOString().split('T')[0];
+
+        // --- AUTHENTICATION LISTENERS ---
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                // UI Updates
+                loginSection.classList.add('hidden');
+                dashboardSection.classList.remove('hidden');
+                userInfo.classList.remove('hidden');
+                logoutBtn.classList.remove('hidden');
+
+                userName.textContent = user.displayName || user.email;
+                userAvatar.src = user.photoURL || 'https://via.placeholder.com/40';
+
+                // Listen to Firestore for user-specific data
+                subscribeToData();
+            } else {
+                currentUser = null;
+                loginSection.classList.remove('hidden');
+                dashboardSection.classList.add('hidden');
+                userInfo.classList.add('hidden');
+                logoutBtn.classList.add('hidden');
+
+                if (unsubscribeSnapshot) unsubscribeSnapshot();
+                allShipmentData = [];
+            }
+        });
+
+        // Google Login Action
+        googleLoginBtn.addEventListener('click', async () => {
+            try {
+                await signInWithPopup(auth, provider);
+            } catch (err) {
+                showError("Googleログインに失敗しました: " + err.message);
+            }
+        });
+
+        // Logout Action
+        logoutBtn.addEventListener('click', async () => {
+            try {
+                await signOut(auth);
+            } catch (err) {
+                console.error("Logout Error:", err);
+            }
+        });
+
+        // --- FIRESTORE DATA HANDLING ---
+        function getCollectionRef() {
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'shipapp-default';
+            // Following mandatory Rule 1: Public path for collaborative/shared access or user private path
+            return collection(db, 'artifacts', appId, 'public', 'data', 'shipments');
+        }
+
+        function subscribeToData() {
+            if (!currentUser) return;
+
+            const colRef = getCollectionRef();
+            // RULE 2: Simple query, memory side filtering/sorting
+            unsubscribeSnapshot = onSnapshot(colRef, (snapshot) => {
+                allShipmentData = [];
+                snapshot.forEach(docSnap => {
+                    allShipmentData.push({
+                        id: docSnap.id,
+                        ...docSnap.data()
+                    });
+                });
+                updateFilterOptions();
+                renderUI();
+            }, (error) => {
+                console.error("Firestore Error:", error);
+                showError("データの読み込みに失敗しました。");
+            });
+        }
+
+        // --- FORM SUBMISSION (ADD / EDIT) ---
+        shipmentForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideError();
+
+            const crop = cropNameInput.value.trim();
+            const date = shipDateInput.value;
+            const qty = parseFloat(quantityInput.value);
+            const unit = unitInput.value;
+            const dest = destinationInput.value;
+            const memo = memoInput.value.trim();
+            const targetId = editDocId.value;
+
+            // Input Validation
+            if (!crop) return showError("農産物名を入力してください。");
+            if (!date) return showError("出荷日を選択してください。");
+            if (isNaN(qty) || qty <= 0) return showError("出荷数量には0より大きい数値を入れてください。");
+            if (!dest) return showError("出荷先を選択してください。");
+
+            const payload = {
+                cropName: crop,
+                shipDate: date,
+                quantity: qty,
+                unit: unit,
+                destination: dest,
+                memo: memo,
+                userId: currentUser.uid,
+                userName: currentUser.displayName || '名無し',
+                updatedAt: serverTimestamp()
+            };
+
+            try {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> 保存中...`;
+
+                if (targetId) {
+                    // Update Record
+                    const docRef = doc(db, 'artifacts', typeof __app_id !== 'undefined' ? __app_id : 'shipapp-default', 'public', 'data', 'shipments', targetId);
+                    await updateDoc(docRef, payload);
+                } else {
+                    // Create New Record
+                    payload.createdAt = serverTimestamp();
+                    await addDoc(getCollectionRef(), payload);
+                }
+
+                resetForm();
+            } catch (err) {
+                console.error("Save error:", err);
+                showError("保存中にエラーが発生しました。");
+            } finally {
+                submitBtn.disabled = false;
+            }
+        });
+
+        function resetForm() {
+            editDocId.value = '';
+            cropNameInput.value = '';
+            shipDateInput.value = new Date().toISOString().split('T')[0];
+            quantityInput.value = '';
+            destinationInput.value = '';
+            memoInput.value = '';
+            
+            formTitle.innerHTML = `<i class="fa-solid fa-circle-plus text-emerald-600"></i> 出荷記録の登録`;
+            submitBtn.innerHTML = `<i class="fa-solid fa-paper-plane"></i> 登録する`;
+            cancelEditBtn.classList.add('hidden');
+            hideError();
+        }
+
+        cancelEditBtn.addEventListener('click', resetForm);
+
+        // --- RENDER FUNCTIONS ---
+        function renderUI() {
+            const cropFilter = filterCropSelect.value;
+            const destFilter = filterDestSelect.value;
+
+            // 1. Filter Data
+            let filtered = allShipmentData.filter(item => {
+                const matchCrop = cropFilter === 'ALL' || item.cropName === cropFilter;
+                const matchDest = destFilter === 'ALL' || item.destination === destFilter;
+                return matchCrop && matchDest;
+            });
+
+            // 2. Sort Data by Date
+            filtered.sort((a, b) => {
+                const dateA = new Date(a.shipDate || 0);
+                const dateB = new Date(b.shipDate || 0);
+                return sortDesc ? dateB - dateA : dateA - dateB;
+            });
+
+            // 3. Render Records List
+            totalCountEl.textContent = filtered.length;
+            recordsContainer.innerHTML = '';
+
+            if (filtered.length === 0) {
+                recordsContainer.innerHTML = `
+                    <div class="text-center py-8 text-slate-400">
+                        <i class="fa-regular fa-folder-open text-4xl mb-2"></i>
+                        <p class="text-sm">該当する出荷記録が見つかりません</p>
+                    </div>`;
+            } else {
+                filtered.forEach(item => {
+                    const card = document.createElement('div');
+                    card.className = "bg-slate-50 hover:bg-emerald-50/40 p-4 rounded-xl border border-slate-200 transition flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3";
+                    card.innerHTML = `
+                        <div class="space-y-1">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="bg-emerald-100 text-emerald-800 text-xs font-bold px-2.5 py-0.5 rounded-full">${escapeHtml(item.cropName)}</span>
+                                <span class="text-xs text-slate-500 font-medium"><i class="fa-regular fa-calendar"></i> ${escapeHtml(item.shipDate)}</span>
+                                <span class="bg-slate-200 text-slate-700 text-xs font-medium px-2 py-0.5 rounded"><i class="fa-solid fa-location-dot text-slate-400"></i> ${escapeHtml(item.destination)}</span>
+                            </div>
+                            <div class="text-lg font-bold text-slate-800">
+                                ${item.quantity} <span class="text-xs font-normal text-slate-600">${escapeHtml(item.unit || 'kg')}</span>
+                            </div>
+                            ${item.memo ? `<p class="text-xs text-slate-600 bg-white p-2 rounded-lg border border-slate-100 mt-1"><i class="fa-regular fa-note-sticky text-slate-400"></i> ${escapeHtml(item.memo)}</p>` : ''}
+                        </div>
+
+                        <div class="flex items-center gap-2 self-end sm:self-center">
+                            <button onclick="window.editRecord('${item.id}')" class="text-xs bg-white hover:bg-slate-100 text-slate-600 border border-slate-300 px-3 py-1.5 rounded-lg transition font-medium flex items-center gap-1">
+                                <i class="fa-solid fa-pen-to-square"></i> 編集
+                            </button>
+                            <button onclick="window.openDeleteModal('${item.id}')" class="text-xs bg-white hover:bg-rose-50 text-rose-600 border border-slate-300 hover:border-rose-200 px-3 py-1.5 rounded-lg transition font-medium flex items-center gap-1">
+                                <i class="fa-solid fa-trash-can"></i> 削除
+                            </button>
+                        </div>
+                    `;
+                    recordsContainer.appendChild(card);
+                });
+            }
+
+            // 4. Update Summary & Charts using all un-filtered user data
+            renderSummaryAndChart(allShipmentData);
+        }
+
+        // Dynamically update dropdown filter options
+        function updateFilterOptions() {
+            const currentCrop = filterCropSelect.value;
+            const uniqueCrops = [...new Set(allShipmentData.map(d => d.cropName))].filterBoolean();
+
+            filterCropSelect.innerHTML = `<option value="ALL">全ての農産物</option>`;
+            uniqueCrops.forEach(crop => {
+                const opt = document.createElement('option');
+                opt.value = crop;
+                opt.textContent = crop;
+                if (crop === currentCrop) opt.selected = true;
+                filterCropSelect.appendChild(opt);
+            });
+        }
+
+        // Render Summary Totals and Chart
+        function renderSummaryAndChart(data) {
+            // Aggregate totals by Crop
+            const totals = {};
+            data.forEach(item => {
+                const crop = item.cropName || '未分類';
+                const qty = Number(item.quantity) || 0;
+                const unit = item.unit || 'kg';
+                
+                if (!totals[crop]) totals[crop] = {};
+                if (!totals[crop][unit]) totals[crop][unit] = 0;
+                totals[crop][unit] += qty;
+            });
+
+            summaryList.innerHTML = '';
+            const entries = Object.entries(totals);
+
+            if (entries.length === 0) {
+                summaryList.innerHTML = `<p class="text-sm text-slate-400">記録データなし</p>`;
+            } else {
+                entries.forEach(([crop, units]) => {
+                    const div = document.createElement('div');
+                    div.className = "flex justify-between items-center text-xs py-1 border-b border-slate-100";
+                    
+                    const unitTexts = Object.entries(units).map(([u, val]) => `${val.toFixed(1)} ${u}`).join(', ');
+                    div.innerHTML = `
+                        <span class="font-semibold text-slate-700">${escapeHtml(crop)}</span>
+                        <span class="font-bold text-emerald-700">${unitTexts}</span>
+                    `;
+                    summaryList.appendChild(div);
+                });
+            }
+
+            // Chart Processing: Group quantity by date
+            const chartDataByDate = {};
+            // Sort ascending for chart x-axis
+            const sortedAsc = [...data].sort((a, b) => new Date(a.shipDate) - new Date(b.shipDate));
+
+            sortedAsc.forEach(item => {
+                const date = item.shipDate;
+                if (!date) return;
+                chartDataByDate[date] = (chartDataByDate[date] || 0) + Number(item.quantity || 0);
+            });
+
+            const labels = Object.keys(chartDataByDate);
+            const values = Object.values(chartDataByDate);
+
+            // Render Chart.js
+            const ctx = document.getElementById('shipmentChart').getContext('2d');
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '日別総出荷量',
+                        data: values,
+                        borderColor: '#059669',
+                        backgroundColor: 'rgba(5, 150, 105, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.3,
+                        pointBackgroundColor: '#059669'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: { font: { size: 10 } }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            ticks: { font: { size: 10 } }
+                        }
+                    }
+                }
+            });
+        }
+
+        // --- EDIT & DELETE HANDLERS ---
+        window.editRecord = function(id) {
+            const item = allShipmentData.find(d => d.id === id);
+            if (!item) return;
+
+            editDocId.value = item.id;
+            cropNameInput.value = item.cropName || '';
+            shipDateInput.value = item.shipDate || '';
+            quantityInput.value = item.quantity || '';
+            unitInput.value = item.unit || 'kg';
+            destinationInput.value = item.destination || '';
+            memoInput.value = item.memo || '';
+
+            formTitle.innerHTML = `<i class="fa-solid fa-pen-to-square text-emerald-600"></i> 出荷記録の編集`;
+            submitBtn.innerHTML = `<i class="fa-solid fa-check"></i> 更新する`;
+            cancelEditBtn.classList.remove('hidden');
+
+            // Scroll to form smoothly
+            shipmentForm.scrollIntoView({ behavior: 'smooth' });
+        };
+
+        window.openDeleteModal = function(id) {
+            deleteTargetId = id;
+            modalOverlay.classList.remove('hidden');
+        };
+
+        closeModalBtn.addEventListener('click', () => {
+            deleteTargetId = null;
+            modalOverlay.classList.add('hidden');
+        });
+
+        confirmDeleteBtn.addEventListener('click', async () => {
+            if (!deleteTargetId) return;
+            try {
+                const appId = typeof __app_id !== 'undefined' ? __app_id : 'shipapp-default';
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'shipments', deleteTargetId);
+                await deleteDoc(docRef);
+                deleteTargetId = null;
+                modalOverlay.classList.add('hidden');
+            } catch (err) {
+                console.error("Delete error:", err);
+                showError("削除処理に失敗しました。");
+            }
+        });
+
+        // --- SORT & FILTER EVENT LISTENERS ---
+        filterCropSelect.addEventListener('change', renderUI);
+        filterDestSelect.addEventListener('change', renderUI);
+
+        sortToggleBtn.addEventListener('click', () => {
+            sortDesc = !sortDesc;
+            sortLabel.textContent = sortDesc ? "新しい順" : "古い順";
+            renderUI();
+        });
+
+        // --- UTILITY FUNCTIONS ---
+        function showError(msg) {
+            errorText.textContent = msg;
+            errorMessage.classList.remove('hidden');
+        }
+
+        function hideError() {
+            errorMessage.classList.add('hidden');
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+    </script>
+</body>
+</html>
