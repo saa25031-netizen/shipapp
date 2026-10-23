@@ -360,7 +360,12 @@
             try {
                 await signInWithPopup(auth, provider);
             } catch (err) {
-                showError("Googleログインに失敗しました: " + err.message);
+                console.error("Login Error:", err);
+                if (err.code === 'auth/unauthorized-domain') {
+                    showError("【Firebase設定エラー】現在のドメイン ( " + window.location.hostname + " ) がFirebase Authenticationの承認済みドメインに登録されていません。Firebase Console > Authentication > 設定 > 承認済みドメイン にこのドメインを追加してください。");
+                } else {
+                    showError("Googleログインに失敗しました: " + (err.message || err.code));
+                }
             }
         });
 
