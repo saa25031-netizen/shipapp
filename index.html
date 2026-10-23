@@ -6,6 +6,26 @@
     <title>農産物出荷・販売管理アプリ - shipapp</title>
     <!-- Tailwind CSS (UI styling) -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        // Disable Tailwind CDN console warning in standalone development
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        emerald: {
+                            50: '#ecfdf5',
+                            100: '#d1fae5',
+                            500: '#10b981',
+                            600: '#059669',
+                            700: '#047857',
+                            800: '#065f46',
+                            900: '#064e3b',
+                        }
+                    }
+                }
+            }
+        };
+    </script>
     <!-- Font Awesome (Icons) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Chart.js (Data Visualization) -->
@@ -106,8 +126,8 @@
                     
                     <!-- Alert Error Message -->
                     <div id="errorMessage" class="hidden mb-4 p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl flex items-start gap-2">
-                        <i class="fa-solid fa-triangle-exclamation mt-0.5"></i>
-                        <span id="errorText"></span>
+                        <i class="fa-solid fa-triangle-exclamation mt-0.5 flex-shrink-0"></i>
+                        <span id="errorText" class="break-all"></span>
                     </div>
 
                     <form id="shipmentForm" class="space-y-4">
@@ -266,7 +286,7 @@
             serverTimestamp 
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Provided Firebase Configuration
+        // Firebase Configuration
         const firebaseConfig = {
             apiKey: "AIzaSyDngO7zaiBblrSxf84iLtSpU2hd_MiWfT8",
             authDomain: "shipapp-6de62.firebaseapp.com",
@@ -286,7 +306,7 @@
         let currentUser = null;
         let unsubscribeSnapshot = null;
         let allShipmentData = [];
-        let sortDesc = true; // Default: new dates first
+        let sortDesc = true;
         let deleteTargetId = null;
         let chartInstance = null;
 
@@ -325,14 +345,15 @@
         const closeModalBtn = document.getElementById('closeModalBtn');
         const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
 
-        // Initialize Default Date to Today
-        shipDateInput.value = new Date().toISOString().split('T')[0];
+        // Set default date
+        if (shipDateInput) {
+            shipDateInput.value = new Date().toISOString().split('T')[0];
+        }
 
-        // --- AUTHENTICATION LISTENERS ---
+        // Authentication State Change Listener
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 currentUser = user;
-                // UI Updates
                 loginSection.classList.add('hidden');
                 dashboardSection.classList.remove('hidden');
                 userInfo.classList.remove('hidden');
@@ -341,7 +362,6 @@
                 userName.textContent = user.displayName || user.email;
                 userAvatar.src = user.photoURL || 'https://via.placeholder.com/40';
 
-                // Listen to Firestore for user-specific data
                 subscribeToData();
             } else {
                 currentUser = null;
@@ -355,21 +375,22 @@
             }
         });
 
-        // Google Login Action
+        // Google Login Handler
         googleLoginBtn.addEventListener('click', async () => {
             try {
+                hideError();
                 await signInWithPopup(auth, provider);
             } catch (err) {
                 console.error("Login Error:", err);
                 if (err.code === 'auth/unauthorized-domain') {
-                    showError("【Firebase設定エラー】現在のドメイン ( " + window.location.hostname + " ) がFirebase Authenticationの承認済みドメインに登録されていません。Firebase Console > Authentication > 設定 > 承認済みドメイン にこのドメインを追加してください。");
+                    showError("【認証エラー】現在のドメイン (" + window.location.hostname + ") が承認されていません。Firebase Console -> Authentication -> 設定 -> 承認済みドメインにこのドメインを追加してください。");
                 } else {
-                    showError("Googleログインに失敗しました: " + (err.message || err.code));
+                    showError("ログインに失敗しました: " + (err.message || err.code));
                 }
             }
         });
 
-        // Logout Action
+        // Logout Handler
         logoutBtn.addEventListener('click', async () => {
             try {
                 await signOut(auth);
@@ -378,18 +399,17 @@
             }
         });
 
-        // --- FIRESTORE DATA HANDLING ---
+        // Firestore Reference helper
         function getCollectionRef() {
             const appId = typeof __app_id !== 'undefined' ? __app_id : 'shipapp-default';
-            // Following mandatory Rule 1: Public path for collaborative/shared access or user private path
             return collection(db, 'artifacts', appId, 'public', 'data', 'shipments');
         }
 
+        // Firestore Subscription
         function subscribeToData() {
             if (!currentUser) return;
 
             const colRef = getCollectionRef();
-            // RULE 2: Simple query, memory side filtering/sorting
             unsubscribeSnapshot = onSnapshot(colRef, (snapshot) => {
                 allShipmentData = [];
                 snapshot.forEach(docSnap => {
@@ -401,12 +421,12 @@
                 updateFilterOptions();
                 renderUI();
             }, (error) => {
-                console.error("Firestore Error:", error);
-                showError("データの読み込みに失敗しました。");
+                console.error("Firestore Snapshot Error:", error);
+                showError("データの取得に失敗しました。");
             });
         }
 
-        // --- FORM SUBMISSION (ADD / EDIT) ---
+        // Form Submit Handler
         shipmentForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             hideError();
@@ -419,7 +439,6 @@
             const memo = memoInput.value.trim();
             const targetId = editDocId.value;
 
-            // Input Validation
             if (!crop) return showError("農産物名を入力してください。");
             if (!date) return showError("出荷日を選択してください。");
             if (isNaN(qty) || qty <= 0) return showError("出荷数量には0より大きい数値を入れてください。");
@@ -441,12 +460,12 @@
                 submitBtn.disabled = true;
                 submitBtn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> 保存中...`;
 
+                const appId = typeof __app_id !== 'undefined' ? __app_id : 'shipapp-default';
+
                 if (targetId) {
-                    // Update Record
-                    const docRef = doc(db, 'artifacts', typeof __app_id !== 'undefined' ? __app_id : 'shipapp-default', 'public', 'data', 'shipments', targetId);
+                    const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'shipments', targetId);
                     await updateDoc(docRef, payload);
                 } else {
-                    // Create New Record
                     payload.createdAt = serverTimestamp();
                     await addDoc(getCollectionRef(), payload);
                 }
@@ -454,7 +473,7 @@
                 resetForm();
             } catch (err) {
                 console.error("Save error:", err);
-                showError("保存中にエラーが発生しました。");
+                showError("データの保存中にエラーが発生しました。");
             } finally {
                 submitBtn.disabled = false;
             }
@@ -476,26 +495,23 @@
 
         cancelEditBtn.addEventListener('click', resetForm);
 
-        // --- RENDER FUNCTIONS ---
+        // Render Application UI
         function renderUI() {
             const cropFilter = filterCropSelect.value;
             const destFilter = filterDestSelect.value;
 
-            // 1. Filter Data
             let filtered = allShipmentData.filter(item => {
                 const matchCrop = cropFilter === 'ALL' || item.cropName === cropFilter;
                 const matchDest = destFilter === 'ALL' || item.destination === destFilter;
                 return matchCrop && matchDest;
             });
 
-            // 2. Sort Data by Date
             filtered.sort((a, b) => {
                 const dateA = new Date(a.shipDate || 0);
                 const dateB = new Date(b.shipDate || 0);
                 return sortDesc ? dateB - dateA : dateA - dateB;
             });
 
-            // 3. Render Records List
             totalCountEl.textContent = filtered.length;
             recordsContainer.innerHTML = '';
 
@@ -535,15 +551,14 @@
                 });
             }
 
-            // 4. Update Summary & Charts using all un-filtered user data
             renderSummaryAndChart(allShipmentData);
         }
 
-        // Dynamically update dropdown filter options
+        // Dynamically update dropdown filter options (CORRECTED METHOD HERE)
         function updateFilterOptions() {
             const currentCrop = filterCropSelect.value;
-            // 修正: filterBoolean() ではなく JavaScript 標準の .filter(Boolean) を使用
-            const uniqueCrops = [...new Set(allShipmentData.map(d => d.cropName))].filter(Boolean);
+            // Using standard JavaScript Array.prototype.filter(Boolean)
+            const uniqueCrops = Array.from(new Set(allShipmentData.map(d => d.cropName))).filter(Boolean);
 
             filterCropSelect.innerHTML = `<option value="ALL">全ての農産物</option>`;
             uniqueCrops.forEach(crop => {
@@ -557,7 +572,6 @@
 
         // Render Summary Totals and Chart
         function renderSummaryAndChart(data) {
-            // Aggregate totals by Crop
             const totals = {};
             data.forEach(item => {
                 const crop = item.cropName || '未分類';
@@ -588,9 +602,8 @@
                 });
             }
 
-            // Chart Processing: Group quantity by date
+            // Chart Processing
             const chartDataByDate = {};
-            // Sort ascending for chart x-axis
             const sortedAsc = [...data].sort((a, b) => new Date(a.shipDate) - new Date(b.shipDate));
 
             sortedAsc.forEach(item => {
@@ -602,8 +615,10 @@
             const labels = Object.keys(chartDataByDate);
             const values = Object.values(chartDataByDate);
 
-            // Render Chart.js
-            const ctx = document.getElementById('shipmentChart').getContext('2d');
+            const canvas = document.getElementById('shipmentChart');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            
             if (chartInstance) {
                 chartInstance.destroy();
             }
@@ -643,7 +658,7 @@
             });
         }
 
-        // --- EDIT & DELETE HANDLERS ---
+        // Global Edit/Delete Hooks
         window.editRecord = function(id) {
             const item = allShipmentData.find(d => d.id === id);
             if (!item) return;
@@ -660,7 +675,6 @@
             submitBtn.innerHTML = `<i class="fa-solid fa-check"></i> 更新する`;
             cancelEditBtn.classList.remove('hidden');
 
-            // Scroll to form smoothly
             shipmentForm.scrollIntoView({ behavior: 'smooth' });
         };
 
@@ -688,7 +702,6 @@
             }
         });
 
-        // --- SORT & FILTER EVENT LISTENERS ---
         filterCropSelect.addEventListener('change', renderUI);
         filterDestSelect.addEventListener('change', renderUI);
 
@@ -698,7 +711,6 @@
             renderUI();
         });
 
-        // --- UTILITY FUNCTIONS ---
         function showError(msg) {
             errorText.textContent = msg;
             errorMessage.classList.remove('hidden');
